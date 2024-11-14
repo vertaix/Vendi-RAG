@@ -132,7 +132,7 @@ class Ingestor:
 
 
 if __name__ == "__main__":
-    dataset = "musique"
+    dataset = "2wikimultihopqa"
     subsample = "test_subsampled"
     top_n = 10
     ingestor = Ingestor(
