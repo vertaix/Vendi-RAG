@@ -3,8 +3,8 @@ import sys
 import json
 from langchain.vectorstores import Chroma
 from sentence_transformers import SentenceTransformer
-
-
+from scipy.spatial.distance import cosine
+import vendi
 sys.path.append("../")
 
 
@@ -22,6 +22,7 @@ class SentenceTransformerEmbedding:
     def embed_documents(self, documents):
         return self.model.encode(documents, convert_to_tensor=True).tolist()
 
+
 class Ingestor:
     def __init__(
         self,
@@ -30,7 +31,7 @@ class Ingestor:
     ):
         self.dataset_path = dataset_path
         self.persist_directory = persist_directory
-        self.embedding=SentenceTransformerEmbedding('all-MiniLM-L6-v2') 
+        self.embedding = SentenceTransformerEmbedding("all-MiniLM-L6-v2")
 
     def load_data(self):
         """Load the dataset and extract documents and metadata."""
@@ -53,18 +54,14 @@ class Ingestor:
 
         return documents, metadatas
 
-
-
     def create_vectordb(self):
         """Create the Chroma vector store with embeddings and metadata."""
-
-
         documents, metadatas = self.load_data()
 
         print("Initializing Chroma vector store...")
         vectordb = Chroma(
             persist_directory=self.persist_directory,
-            embedding_function=self.embedding  # Use Hugging Face model's encode method
+            embedding_function=self.embedding,  # Use Hugging Face model's encode method
         )
 
         MAX_BATCH_SIZE = 1000
@@ -92,7 +89,6 @@ class Ingestor:
     def load_vectordb(self, persist_directory):
         if os.path.exists(persist_directory):
             print(f"Loading existing vector database from '{persist_directory}'...")
-
             vectordb = Chroma(persist_directory=persist_directory, embedding_function=self.embedding)
         else:
             print(f"Vector database not found. Creating a new one...")
@@ -100,46 +96,89 @@ class Ingestor:
 
         return vectordb
 
-    def query_question(self, question: str, top_n: int = 3):
-        vectordb = self.load_vectordb(self.persist_directory)
+    def query_question(self, question: str, top_n: int = 3, use_mmr: bool = False, use_vendi_score: bool = False, diversity: float = 0.7):
+            """
+            Query the vector database for a question and retrieve top results.
 
-       
+            Args:
+                question (str): The question to search.
+                top_n (int): Number of top results to retrieve.
+                use_mmr (bool): Whether to use Maximal Marginal Relevance (MMR) for retrieval.
+                use_vendi_score (bool): Whether to use VendiScore for retrieval.
+                diversity (float): Diversity parameter for MMR/VendiScore (0 for relevance, 1 for diversity).
 
-        print(f"Searching vector database for ..")
-        search_results = vectordb.similarity_search(question, k=top_n)
+            Returns:
+                list: List of search results.
+            """
+            vectordb = self.load_vectordb(self.persist_directory)
 
-        if not search_results:
-            print("No results found.")
-        else:
-            print(f"Top {top_n} results for the question:")
-            for result in search_results:
-                print(result)
+            print(f"Searching vector database{' with MMR' if use_mmr else ''}{' with VendiScore' if use_vendi_score else ''} for: {question}")
 
-        return search_results
+            if use_mmr or use_vendi_score:
+                # Retrieve results with scores
+                search_results_with_scores = vectordb.similarity_search_with_score(question, k=top_n * 2)
 
-    def load_evaluation_data(self):
-        dict_groundtruth = {"question_id": [], "question_text": [], "ground_truth": []}
+                # Separate results and scores
+                results, scores = zip(*search_results_with_scores)
 
-        with open(self.dataset_path, "r") as file:
-            data = [json.loads(line) for line in file]
+                # Embed the question and results for similarity computation
+                query_embedding = self.embedding.embed_query(question)
+                result_embeddings = self.embedding.embed_documents([res.page_content for res in results])
 
-        for sample in data:
-            dict_groundtruth["question_id"].append(sample["question_id"])
-            dict_groundtruth["question_text"].append(sample["question_text"])
-            dict_groundtruth["ground_truth"].append(sample["answers_objects"][0]["spans"][0])
+                # Implement MMR or VendiScore
+                selected_results = []
+                unselected = list(range(len(results)))
 
-        return dict_groundtruth
+                for _ in range(min(top_n, len(results))):
+                    if not selected_results:  # First element, pick the highest relevance score
+                        idx = unselected.pop(0)
+                    else:
+                        # Calculate MMR or VendiScore for all remaining candidates
+                        scores_list = []
+                        for i in unselected:
+                            relevance = scores[i]
+                            diversity_score = max(
+                                1 - cosine(result_embeddings[i], result_embeddings[j])
+                                for j in [results.index(sel) for sel in selected_results]
+                            )
 
+                            if use_mmr:
+                                # MMR score: balance between relevance and diversity
+                                score = diversity * relevance - (1 - diversity) * diversity_score
+                            elif use_vendi_score:
+
+                                normalized_diversity=vendi.score_X(result_embeddings)
+                                score = relevance + diversity * normalized_diversity
+                            scores_list.append(score)
+
+                        # Select the candidate with the highest score
+                        idx = unselected.pop(scores_list.index(max(scores_list)))
+
+                    selected_results.append(results[idx])
+
+                search_results = selected_results
+            else:
+                # Standard similarity search
+                search_results = vectordb.similarity_search(question, k=top_n)
+
+            if not search_results:
+                print("No results found.")
+            else:
+                print(f"Top {top_n} results for the question:")
+                for result in search_results:
+                    print(result)
+
+            return search_results
 
 if __name__ == "__main__":
     dataset = "2wikimultihopqa"
     subsample = "test_subsampled"
-    top_n = 10
+    top_n = 5
     ingestor = Ingestor(
         dataset_path="../processed_data/{}/{}.jsonl".format(dataset, subsample),
         persist_directory="../vectorDB/{}".format(dataset),
     )
-    vectordb = ingestor.create_vectordb()
+    # vectordb = ingestor.create_vectordb()
 
     question = "Who is the father-in-law of Queen Hyojeong?"
-    results = ingestor.query_question(question, top_n=top_n)
+    results = ingestor.query_question(question, top_n=top_n, use_vendi_score=True, diversity=0.8)
