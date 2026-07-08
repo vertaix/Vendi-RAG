@@ -325,6 +325,9 @@ class VendiRAG:
     dynamic_s : bool
         True  → full Vendi-RAG with EMA-adjusted s.
         False → fixed s = initial_s (the "fixed-s" ablation baseline).
+    use_early_stopping : bool
+        True  → stop as soon as Q_t >= tau (conditions B and D in Exp 1).
+        False → always run exactly max_iterations (conditions A and C).
     verbose : bool
         Print per-iteration diagnostics.
     api_key : str or None
@@ -342,6 +345,7 @@ class VendiRAG:
         k_docs: int = K_DOCS,
         beta: float = BETA,
         dynamic_s: bool = True,
+        use_early_stopping: bool = True,
         verbose: bool = True,
         api_key: Optional[str] = None,
     ):
@@ -353,6 +357,7 @@ class VendiRAG:
         self.k_docs = k_docs
         self.beta = beta
         self.dynamic_s = dynamic_s
+        self.use_early_stopping = use_early_stopping
         self.verbose = verbose
 
         llm = ChatOpenAI(
@@ -443,8 +448,8 @@ class VendiRAG:
                 best_quality = quality
                 best_answer = candidate_answer
 
-            # ─ Step 6: early stop ─────────────────────────────────────────────
-            if quality >= self.quality_threshold:
+            # ─ Step 6: early stop (only when use_early_stopping=True / cond B & D) ─
+            if self.use_early_stopping and quality >= self.quality_threshold:
                 if self.verbose:
                     print(f"  ✓ early stop  Q={quality:.3f} ≥ τ={self.quality_threshold}")
                 break

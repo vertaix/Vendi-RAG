@@ -45,6 +45,7 @@ class Ingestor:
         self.persist_directory = persist_directory
         self.embedding = SentenceTransformerEmbedding("all-mpnet-base-v2")
         self.log_file = os.path.join(persist_directory, "ingestion_log.txt")
+        self._vectordb_cache = None   # loaded once, reused across queries
         os.makedirs(persist_directory, exist_ok=True)
         logging.basicConfig(
             filename=self.log_file,
@@ -135,6 +136,8 @@ class Ingestor:
         return vectordb
 
     def load_vectordb(self, persist_directory):
+        if self._vectordb_cache is not None:
+            return self._vectordb_cache
         if os.path.exists(persist_directory):
             print(f"Loading existing vector database from '{persist_directory}'...")
             vectordb = Chroma(
@@ -143,7 +146,7 @@ class Ingestor:
         else:
             print(f"Vector database not found. Creating a new one...")
             vectordb = self.create_vectordb()
-
+        self._vectordb_cache = vectordb
         return vectordb
 
     def query_question(self, question: str, top_n: int = 3, use_mmr: bool = False, use_vendi_score: bool = False, la: float = 0.7, method: str = ''):
