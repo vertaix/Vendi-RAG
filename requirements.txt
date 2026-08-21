@@ -1,10 +1,33 @@
-beir==2.0.0
-bertopic==0.16.3
-jsonlines==4.0.0
-jsonnet==0.20.0
-langchain==0.3.2
-python-decouple==3.8
-rapidfuzz==3.10.0
-Requests==2.32.3
-tqdm==4.66.5
-transformers==4.45.1
+# The library itself needs only numpy:
+#     pip install -e .
+#
+# This file pins the full research environment used to reproduce the paper
+# (research/), which is a much heavier install:
+#     pip install -r requirements.txt
+
+numpy>=1.23
+
+# LLM backends
+openai>=1.50.0
+
+# Embeddings and vector store (research/ingestion.py)
+sentence-transformers>=3.0.0
+chromadb>=0.5.0
+
+# Benchmark harness and scoring (research/)
+pandas>=2.0.0
+scipy>=1.10.0
+rouge-score>=0.1.2
+jsonlines>=4.0.0
+tqdm>=4.66.0
+requests>=2.32.0
+
+# Cross-encoder reranker control (research/experiments/exp4_reranker_baseline.py)
+transformers>=4.45.0
+
+# Plots and the README animation (vendirag.viz)
+matplotlib>=3.7.0
+pillow>=10.0.0
+
+# Tests
+pytest>=8.0.0

@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vendirag"
+version = "0.2.0"
+description = "Diversity-aware retrieval for RAG: the Vendi Retrieval Score, standalone or in the Vendi-RAG loop"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Mohammad Reza Rezaei", email = "m.reza.rezaei72@gmail.com" },
+    { name = "Adji Bousso Dieng" },
+]
+keywords = ["RAG", "retrieval", "diversity", "Vendi score", "multi-hop QA", "LLM"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
+]
+requires-python = ">=3.9"
+
+# The retriever, the Vendi Score, the pipeline, the toy corpus, and the offline
+# backend all run on numpy alone.  Everything else is opt-in.
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+openai = ["openai>=1.50"]
+anthropic = ["anthropic>=0.40"]
+embeddings = ["sentence-transformers>=3.0"]
+viz = ["matplotlib>=3.7", "pillow>=10.0"]
+# Everything needed to reproduce the paper's benchmarks from research/.
+research = [
+    "openai>=1.50",
+    "sentence-transformers>=3.0",
+    "chromadb>=0.5",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "rouge-score>=0.1.2",
+    "jsonlines>=4.0",
+    "tqdm>=4.66",
+]
+dev = ["pytest>=8.0", "matplotlib>=3.7", "pillow>=10.0"]
+
+[project.urls]
+Homepage = "https://github.com/rezaei-m/vendi-rag"
+Paper = "https://arxiv.org/abs/2502.11228"
+Issues = "https://github.com/rezaei-m/vendi-rag/issues"
+
+[project.scripts]
+vendirag = "vendirag.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vendirag*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

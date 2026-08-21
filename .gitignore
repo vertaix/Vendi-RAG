@@ -1,0 +1,51 @@
+# ── Environment & secrets ────────────────────────────────────────────────────
+.env
+*.env.local
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ── OS / IDE ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+.claude/
+
+# ── Data, indexes, and results (all rebuildable; see research/README.md) ─────
+raw_data/
+processed_data/
+vectorDB/
+results/
+*.csv
+
+# ── Vendored third-party checkouts, kept locally but not part of the release ─
+ColBERT/
+edm/
+models/
+Vendi-RAG-schema/
+
+# ── Paper sources and internal research notes ────────────────────────────────
+EMNLP2026/
+Rebuttal_Reviewer_emnlp2026.md
+additionalExp.md
+
+# ── Generated figures, except the README animation which is checked in ───────
+*.pdf
+*.svg
+*.png
+!assets/*.png

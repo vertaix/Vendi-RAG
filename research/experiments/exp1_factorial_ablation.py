@@ -16,13 +16,13 @@ Model: gpt-4o-mini  (all four conditions — ablation, not backbone test)
 Usage
 -----
   # run all 12 condition×dataset pairs:
-  python experiments/exp1_factorial_ablation.py
+  python research/experiments/exp1_factorial_ablation.py
 
   # single condition on one dataset (for testing):
-  python experiments/exp1_factorial_ablation.py --condition A --dataset hotpotqa
+  python research/experiments/exp1_factorial_ablation.py --condition A --dataset hotpotqa
 
   # dry run on 5 questions per dataset:
-  python experiments/exp1_factorial_ablation.py --max-questions 5
+  python research/experiments/exp1_factorial_ablation.py --max-questions 5
 """
 
 from __future__ import annotations
@@ -37,11 +37,12 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _ROOT)
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(_ROOT, "research"))
 
-from vectorDB.dataset_ingestion import Ingestor
-from models.vendi_rag import VendiRAG
+from vendirag import OpenAILLM, VendiRAG
+
+from ingestion import for_dataset
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -116,6 +117,40 @@ def score_df(df: pd.DataFrame) -> dict:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+#  Benchmark runner
+# ════════════════════════════════════════════════════════════════════════════
+
+def run_with_checkpoint(
+    rag: "VendiRAG",
+    questions: List[str],
+    ground_truths: List[str],
+    checkpoint_path: str,
+) -> pd.DataFrame:
+    """Answer every question, writing the CSV after each one so an interrupted
+    run resumes instead of restarting."""
+    rows: List[dict] = []
+    if os.path.exists(checkpoint_path):
+        rows = pd.read_csv(checkpoint_path).to_dict("records")
+        print(f"  resuming after {len(rows)} questions")
+
+    for i in range(len(rows), len(questions)):
+        result = rag.answer(questions[i])
+        rows.append({
+            "question": questions[i],
+            "ground_truth": ground_truths[i],
+            "generated_answer": result.answer,
+            "quality": result.quality,
+            "iterations": result.n_iterations,
+            "s_trajectory": ";".join(f"{s:.3f}" for s in result.s_trajectory),
+        })
+        pd.DataFrame(rows).to_csv(checkpoint_path, index=False)
+        if (i + 1) % 25 == 0:
+            print(f"  {i + 1}/{len(questions)}")
+
+    return pd.DataFrame(rows)
+
+
+# ════════════════════════════════════════════════════════════════════════════
 #  Single condition × dataset run
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -141,36 +176,26 @@ def run_one(
             return df
         # file exists but not scored yet → fall through to scoring
 
-    ingestor = Ingestor(
-        dataset_path=os.path.join(_ROOT, f"processed_data/{dataset}/"),
-        persist_directory=os.path.join(_ROOT, f"vectorDB/{dataset}"),
-    )
-    data = ingestor.load_evaluation_data()
-    questions    = data["question_text"]
-    ground_truths = data["ground_truth"]
+    corpus = for_dataset(dataset, root=_ROOT)
+    questions, ground_truths = corpus.load_questions()
 
     if max_questions:
         questions     = questions[:max_questions]
         ground_truths = ground_truths[:max_questions]
 
     rag = VendiRAG(
-        ingestor=ingestor,
-        model=MODEL,
+        corpus.retriever(s=INITIAL_S, k=K_DOCS, candidate_pool=K_CANDIDATES),
+        llm=OpenAILLM(MODEL),
         max_iterations=cfg["max_iterations"],
         dynamic_s=cfg["dynamic_s"],
-        use_early_stopping=cfg["use_early_stopping"],
+        early_stopping=cfg["use_early_stopping"],
         initial_s=INITIAL_S,
         k_docs=K_DOCS,
         k_candidates=K_CANDIDATES,
-        verbose=False,          # suppress per-step output during benchmarks
     )
 
-    df = rag.run_benchmark(
-        questions=questions,
-        ground_truths=ground_truths,
-        output_path=csv_path,
-        checkpoint_path=ckpt_path,
-    )
+    df = run_with_checkpoint(rag, questions, ground_truths, ckpt_path)
+    df.to_csv(csv_path, index=False)
 
     # ── clean up checkpoint once complete ────────────────────────────────────
     if os.path.exists(ckpt_path):
