@@ -52,9 +52,9 @@ research = [
 dev = ["pytest>=8.0", "matplotlib>=3.7", "pillow>=10.0"]
 
 [project.urls]
-Homepage = "https://github.com/rezaei-m/vendi-rag"
+Homepage = "https://github.com/vertaix/Vendi-RAG"
 Paper = "https://arxiv.org/abs/2502.11228"
-Issues = "https://github.com/rezaei-m/vendi-rag/issues"
+Issues = "https://github.com/vertaix/Vendi-RAG/issues"
 
 [project.scripts]
 vendirag = "vendirag.cli:main"
