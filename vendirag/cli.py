@@ -66,7 +66,7 @@ def cmd_demo(args) -> int:
     print(f"  {'configuration':<28} {'exact match':>15} {'iterations':>13}")
     configs = [
         ("single-shot, top-k", dict(initial_s=0.0), True),
-        ("single-shot, Vendi s=0.6", dict(initial_s=0.6), True),
+        ("single-shot, Vendi s=0.8", dict(initial_s=0.8), True),
         ("iterative, top-k", dict(initial_s=0.0, dynamic_s=False), False),
         ("Vendi-RAG (fixed s=0.8)", dict(initial_s=0.8, dynamic_s=False), False),
         ("Vendi-RAG (dynamic s)", dict(initial_s=0.8, dynamic_s=True), False),

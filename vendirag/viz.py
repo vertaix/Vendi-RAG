@@ -32,9 +32,9 @@ GRID = "#e8eaed"
 #: How the scatter colours a candidate document.
 GROUPS = ("evidence", "redundant", "other")
 _GROUP_STYLE = {
-    "other":     dict(c=OTHER,     s=24,  m="o", label="unrelated candidate", z=2),
-    "redundant": dict(c=REDUNDANT, s=30,  m="o", label="near-duplicate of the query's topic", z=3),
-    "evidence":  dict(c=EVIDENCE,  s=140, m="D", label="evidence that answers the question", z=4),
+    "other":     dict(c=OTHER,     s=24,  m="o", label="unrelated", z=2),
+    "redundant": dict(c=REDUNDANT, s=30,  m="o", label="near-duplicates", z=3),
+    "evidence":  dict(c=EVIDENCE,  s=150, m="D", label="evidence", z=4),
 }
 
 
@@ -164,16 +164,17 @@ def plot_selection(
         lo, hi = np.percentile(values, [2, 98])
         pad = 0.12 * max(hi - lo, 1e-9)
         axis(lo - pad, hi + pad)
-    ax.set_title(title, fontsize=9.5, color=MUTED, pad=7)
-    ax.set_xlabel("similarity to the query  \u2192", fontsize=8.5, color=MUTED, labelpad=2)
-    ax.set_ylabel("semantic spread orthogonal to the query", fontsize=8.5,
-                  color=MUTED, labelpad=2)
+    if title:
+        ax.set_title(title, fontsize=9.5, color=MUTED, pad=7)
+    ax.set_xlabel("relevance to the query  \u2192", fontsize=9, color=MUTED, labelpad=3)
+    ax.set_ylabel("semantic spread  \u2192", fontsize=9, color=MUTED, labelpad=3)
     ax.set_xticks([]); ax.set_yticks([])
     for spine in ax.spines.values():
         spine.set_color(GRID)
     if legend:
-        ax.legend(loc="lower left", fontsize=7.6, frameon=True, framealpha=0.94,
-                  edgecolor=GRID, borderpad=0.5, labelspacing=0.35)
+        ax.legend(loc="lower left", fontsize=8.5, frameon=True, framealpha=0.94,
+                  edgecolor=GRID, borderpad=0.5, labelspacing=0.4,
+                  handletextpad=0.5)
 
 
 def make_selection_gif(
@@ -187,22 +188,25 @@ def make_selection_gif(
     fps: float = 4.0,
     hold: int = 5,
     classify: Optional[Callable] = None,
-    title: str = "Vendi retrieval: one knob turns a redundant set into a complete one",
+    title: str = "Vendi retrieval: one knob, from redundant to complete",
     dpi: int = 100,
 ):
     """Animate a Vendi retrieval as the diversity weight ``s`` sweeps 0 -> 1.
 
-    Left panel: the candidate pool in two PCA dimensions, with the currently
-    selected documents ringed.  Right panels: how set diversity and evidence
-    recall move with ``s`` across ``questions``, and the text of what is
-    actually retrieved at this ``s``.
+    Left: the candidate pool, laid out by similarity to the query against the
+    main axis of variation orthogonal to it, with the selected documents ringed.
+    At ``s = 0`` the selection is a vertical slice off the right-hand edge; as
+    ``s`` rises it fans out and reaches the evidence.
+
+    Right: the same sweep aggregated over ``questions`` — set diversity and how
+    often the evidence is retrieved.
 
     Parameters
     ----------
     retriever : VendiRetriever
         Already indexed.
     question : str, or an object with ``.question`` / ``.gold_ids`` / ``.chain``
-        The single query drawn in the left and bottom-right panels.
+        The single query drawn on the left.
     questions : sequence, optional
         Questions the aggregate curves are averaged over.  Defaults to
         ``[question]``.
@@ -236,14 +240,16 @@ def make_selection_gif(
     coords, _ = project_relevance_spread(
         retriever.embeddings[pool_idx], base.query_embedding
     )
-    query_xy = None
     kinds = [classify(question, d) for d in pool_docs]
 
     selections, stats = [], []
     for s in s_values:
         result = retriever.retrieve_details(text, k=k, s=s, candidate_pool=candidate_pool)
         selections.append([pool_idx.index(i) for i in result.indices if i in pool_idx])
-        stats.append((result.vendi_score, result.documents))
+        stats.append((
+            result.vendi_score,
+            any(classify(question, d) == "evidence" for d in result.documents),
+        ))
     curve_vs, curve_recall = sweep_s(
         retriever, questions, s_values, k=k, candidate_pool=candidate_pool,
         is_evidence=lambda q, d: classify(q, d) == "evidence",
@@ -251,66 +257,45 @@ def make_selection_gif(
 
     frames = [0] * hold + list(range(len(s_values))) + [len(s_values) - 1] * hold
 
-    fig = plt.figure(figsize=(10.6, 5.3), dpi=dpi, facecolor="white")
+    fig = plt.figure(figsize=(9.6, 4.5), dpi=dpi, facecolor="white")
     gs = fig.add_gridspec(
-        2, 2, width_ratios=[1.12, 1.0], height_ratios=[1.0, 0.95],
-        left=0.035, right=0.98, top=0.775, bottom=0.055, wspace=0.14, hspace=0.42,
+        1, 2, width_ratios=[1.25, 1.0],
+        left=0.045, right=0.975, top=0.755, bottom=0.105, wspace=0.16,
     )
-    ax_scatter = fig.add_subplot(gs[:, 0])
+    ax_scatter = fig.add_subplot(gs[0, 0])
     ax_curve = fig.add_subplot(gs[0, 1])
-    ax_text = fig.add_subplot(gs[1, 1])
-    fig.suptitle(title, fontsize=13, color=INK, y=0.975, fontweight="bold")
-    fig.text(0.5, 0.915, text if len(text) <= 96 else text[:93] + "...",
-             ha="center", fontsize=9, color=MUTED, style="italic")
-    readout = fig.text(0.5, 0.845, "", ha="center", fontsize=11.5, color=INK)
+    fig.suptitle(title, fontsize=13.5, color=INK, y=0.955, fontweight="bold")
+    readout = fig.text(0.5, 0.855, "", ha="center", fontsize=12, color=INK)
 
     def draw(fi: int):
         i = frames[fi]
         s = s_values[i]
-        vs, docs = stats[i]
-        found = any(classify(question, d) == "evidence" for d in docs)
-        plot_selection(
-            ax_scatter, coords, query_xy, kinds, selections[i],
-            title=f"candidate pool  |C| = {len(pool_docs)}     retrieved  k = {k}",
-        )
+        vs, found = stats[i]
+        plot_selection(ax_scatter, coords, None, kinds, selections[i])
         readout.set_text(
-            f"s = {s:.2f}          effectively unique documents retrieved: "
-            f"{vs:.1f} of {k}          evidence found: {'YES' if found else 'no'}"
+            f"s = {s:.2f}       {vs:.1f} of {k} retrieved documents are distinct"
+            f"       evidence: {'found' if found else 'missed'}"
         )
         readout.set_color(EVIDENCE if found else MUTED)
 
         ax_curve.clear()
-        ax_curve.plot(s_values, curve_vs / k, color=PICK, lw=2.0,
-                      label="set diversity  (Vendi Score / k)")
-        ax_curve.plot(s_values, curve_recall, color=EVIDENCE, lw=2.0,
-                      label="questions with evidence retrieved")
+        ax_curve.plot(s_values, curve_vs / k, color=PICK, lw=2.2,
+                      label="distinct documents")
+        ax_curve.plot(s_values, curve_recall, color=EVIDENCE, lw=2.2,
+                      label="evidence found")
         ax_curve.axvline(s, color=INK, lw=1.1, ls="--", alpha=0.65)
-        ax_curve.scatter([s, s], [curve_recall[i], curve_vs[i] / k], s=42,
+        ax_curve.scatter([s, s], [curve_recall[i], curve_vs[i] / k], s=44,
                          color=[EVIDENCE, PICK], zorder=5)
         ax_curve.set_xlim(-0.02, 1.02); ax_curve.set_ylim(-0.05, 1.12)
-        ax_curve.set_xlabel("diversity weight   s", fontsize=9, color=INK, labelpad=1)
-        ax_curve.tick_params(labelsize=8, colors=MUTED)
+        ax_curve.set_xlabel("diversity weight   s", fontsize=9.5, color=INK, labelpad=2)
+        ax_curve.set_yticks([0, 0.5, 1.0])
+        ax_curve.tick_params(labelsize=8.5, colors=MUTED)
         ax_curve.grid(alpha=0.35, color=GRID)
-        ax_curve.legend(fontsize=7.8, loc="lower right", frameon=False)
-        ax_curve.set_title(f"averaged over {len(questions)} questions",
-                           fontsize=9, color=MUTED, pad=4)
+        ax_curve.legend(fontsize=9, loc="lower right", frameon=False)
+        ax_curve.set_title(f"across {len(questions)} questions",
+                           fontsize=9.5, color=MUTED, pad=4)
         for spine in ax_curve.spines.values():
             spine.set_color(GRID)
-
-        ax_text.clear(); ax_text.axis("off")
-        ax_text.set_title("what comes back", fontsize=9, color=MUTED,
-                          loc="left", pad=4)
-        for row, doc in enumerate(docs[:k]):
-            group = classify(question, doc)
-            snippet = doc.text if len(doc.text) <= 64 else doc.text[:61] + "..."
-            ax_text.text(
-                0.0, 0.97 - row * (0.97 / max(k, 1)),
-                ("> " if group == "evidence" else "  ") + snippet,
-                fontsize=7.3, family="DejaVu Sans Mono",
-                color={"evidence": EVIDENCE, "redundant": REDUNDANT}.get(group, MUTED),
-                fontweight="bold" if group == "evidence" else "normal",
-                va="top", transform=ax_text.transAxes,
-            )
         return []
 
     anim = FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps, blit=False)

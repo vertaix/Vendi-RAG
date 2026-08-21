@@ -64,4 +64,6 @@ where = ["."]
 include = ["vendirag*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "vendirag"]
+# Docstring examples are documentation users copy, so they are tested too.
+addopts = "--doctest-modules"

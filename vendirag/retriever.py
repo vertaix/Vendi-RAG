@@ -234,17 +234,26 @@ def vendi_rerank(
 class VendiRetriever:
     """A complete diversity-aware retriever: index texts, retrieve a subset.
 
-    >>> from vendirag import VendiRetriever
+    >>> from vendirag import HashingEmbedder, VendiRetriever
     >>> retriever = VendiRetriever.from_texts([
     ...     "Cats purr when they are content.",
     ...     "Cats purr when they are content and relaxed.",
     ...     "Cats purr when they are content and calm.",
     ...     "Dogs bark when they are alert.",
-    ... ], s=0.8, k=2)
+    ... ], embedder=HashingEmbedder(), s=0.8, k=2)
+
+    Relevance alone spends both slots on the same fact:
+
     >>> [d.text for d in retriever.similarity_search("Why do cats purr?", k=2)]
     ['Cats purr when they are content.', 'Cats purr when they are content and relaxed.']
+
+    Scoring the set does not:
+
     >>> [d.text for d in retriever.retrieve("Why do cats purr?")]
     ['Cats purr when they are content.', 'Dogs bark when they are alert.']
+
+    (The embedder is pinned here only so the example is reproducible; leave it
+    out and the best available encoder is used.)
 
     Parameters
     ----------

@@ -14,12 +14,10 @@ that behind one knob.
 
 ![Vendi retrieval sweeping the diversity weight](assets/vendi-retrieval.gif)
 
-*Left: a candidate pool laid out by similarity to the query (horizontal) against
-the main axis of variation orthogonal to it (vertical). At `s = 0` the retriever
-takes a vertical slice off the right-hand edge — eight documents, two facts
-between them. Raising `s` fans the selection out and the evidence comes into
-context. Right: the same sweep averaged over all 60 questions of the toy
-benchmark. Reproduce it with `vendirag demo`.*
+*At `s = 0` the retriever takes a slice off the right-hand edge: eight documents,
+fewer than four distinct facts between them, and the evidence missed. Raising `s`
+fans the selection out until the evidence is in context. Reproduce it with
+`vendirag demo --gif out.gif`.*
 
 ---
 
