@@ -292,15 +292,23 @@ tests/               pytest suite
 ## Citation
 
 ```bibtex
-@misc{rezaei2025vendiragadaptivelytradingoffdiversity,
-      title={Vendi-RAG: Adaptively Trading-Off Diversity And Quality Significantly
-             Improves Retrieval Augmented Generation With LLMs},
-      author={Mohammad Reza Rezaei and Adji Bousso Dieng},
-      year={2025},
-      eprint={2502.11228},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2502.11228},
+@inproceedings{rezaei-dieng-2026-vendi,
+    title = "Vendi-{RAG}: Adaptively Trading-Off Diversity And Quality Significantly Improves Retrieval Augmented Generation With {LLM}s",
+    author = "Rezaei, Mohammad Reza  and
+      Dieng, Adji Bousso",
+    editor = "Lee, Hung-Yi  and
+      Dev, Sunipa  and
+      Li, Jessy  and
+      Elliott, Desmond",
+    booktitle = "Findings of the {A}ssociation for {C}omputational {L}inguistics: {EMNLP} 2026",
+    month = oct,
+    year = "2026",
+    address = "Budapest, Hungary",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2026.findings-emnlp.1499/",
+    pages = "31909--31932",
+    ISBN = "979-8-89176-462-0",
+    abstract = "Retrieval-augmented generation (RAG) for multi-hop question answering is limited by retrieving semantically redundant documents, when reasoning instead needs diverse, complementary sources. We introduce Vendi-RAG, which treats set-level semantic diversity as a first-class retrieval objective. It combines an eigenvalue-based diversity score (the Vendi Score) with query relevance into a single Vendi Retrieval Score, embedded in an iterative loop that uses an LLM-based answer-quality signal to adaptively rebalance diversity and relevance. On HotpotQA, MuSiQue, and 2WikiMultiHopQA, Vendi-RAG improves accuracy by $+2.4$, $+1.6$, and $+2.4$ points over the strongest diversity-aware iterative baseline (Adaptive Retrieval + MMR). A fixed-$s$ variant captures most of the gain at no extra inference cost, while the LLM-judge loop adds a smaller but significant gain on hard queries. Results hold across five instruction-tuned backbones and two dense retrievers, identifying set-level retrieval diversity as a primary, controllable axis for improving multi-hop RAG."
 }
 ```
 
